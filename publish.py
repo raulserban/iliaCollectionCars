@@ -32,8 +32,13 @@ STORY_NUMBER = os.environ.get("STORY_NUMBER", "").strip()
 # Which page: "stories" (default, iliaCollections | Stories) or "cars" (iliaCollection | Cars)
 CONTENT = os.environ.get("CONTENT", "cars").strip() or "stories"
 CONFIG = {
-    "stories": {"data_dir": HERE, "media_dir": "stories", "slides": 7},
-    "cars": {"data_dir": HERE, "media_dir": "cars", "slides": 5},
+    "stories": {"data_dir": HERE, "media_dir": "stories", "slides": 7,
+                "schedule": "schedule.json", "posted": "posted.json"},
+    "cars": {"data_dir": HERE, "media_dir": "cars", "slides": 5,
+             "schedule": "schedule.json", "posted": "posted.json"},
+    # Cars of Nations: slides live in "Cars of Nations/<NNN Country>/1..5.jpg"
+    "nations": {"data_dir": HERE, "media_dir": "Cars of Nations", "slides": 5,
+                "schedule": "schedule_nations.json", "posted": "posted_nations.json"},
 }[CONTENT]
 
 
@@ -77,8 +82,8 @@ def wait_finished(container_id, label):
 
 
 def main():
-    schedule = json.load(open(os.path.join(CONFIG["data_dir"], "schedule.json")))
-    posted_path = os.path.join(CONFIG["data_dir"], "posted.json")
+    schedule = json.load(open(os.path.join(CONFIG["data_dir"], CONFIG["schedule"])))
+    posted_path = os.path.join(CONFIG["data_dir"], CONFIG["posted"])
     posted = json.load(open(posted_path)) if os.path.exists(posted_path) else {}
 
     if STORY_NUMBER:
@@ -130,7 +135,8 @@ def main():
 
     children = []
     for i in range(1, CONFIG["slides"] + 1):
-        url = f"{REPO_RAW}/{CONFIG['media_dir']}/{num}/{i}.jpg"
+        folder = story.get("folder", num)
+        url = f"{REPO_RAW}/{urllib.parse.quote(CONFIG['media_dir'] + '/' + folder)}/{i}.jpg"
         c = api("POST", f"{IG_USER_ID}/media", {"image_url": url, "is_carousel_item": "true"})
         log(f"  slide {i}: container {c['id']}")
         children.append(c["id"])

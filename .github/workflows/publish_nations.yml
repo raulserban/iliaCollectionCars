@@ -1,0 +1,57 @@
+name: Publish Cars of Nations
+
+on:
+  schedule:
+    # Main run 17:47 Bucharest (winter, UTC+2). GitHub sometimes starts cron runs late,
+    # so there are extra runs every 30 min. The first one that runs posts; the rest skip.
+    # publish.py posts the oldest item whose date + time has already passed:
+    # a late run (even after midnight) posts late, never a day early.
+    - cron: "47 15 * * *"
+    - cron: "17 16 * * *"
+    - cron: "47 16 * * *"
+    - cron: "17 17 * * *"
+    - cron: "47 17 * * *"
+  workflow_dispatch:
+    inputs:
+      story_number:
+        description: "Car number to publish (leave empty = today's car)"
+        required: false
+        default: ""
+      dry_run:
+        description: "Test only (create containers, do NOT publish)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-cars
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish to Instagram
+        env:
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          IG_USER_ID: "17841427086110395"
+          CONTENT: nations
+          STORY_NUMBER: ${{ github.event.inputs.story_number }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run || 'false' }}
+        run: python3 publish.py
+
+      - name: Save posting log
+        run: |
+          if [ -n "$(git status --porcelain posted_nations.json)" ]; then
+            git config user.name "iliaCollections bot"
+            git config user.email "actions@github.com"
+            git add posted_nations.json
+            git commit -m "Posted Cars of Nations $(python3 -c 'import json;print(max(json.load(open("posted_nations.json"))))')"
+            git pull --rebase
+            git push
+          fi
